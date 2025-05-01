@@ -3,9 +3,9 @@
 // @version      0.1.2
 // @description  Add estimated shipping prices to Cardmarket Singles page and hide offers for sellers not shipping to you.
 // @author       seven
-// @namespace    https://raw.githubusercontent.com/SevenIndirecto/tampermonkey-scripts/refs/heads/master/cardmarket.com-shipping-estimator
-// @updateURL    https://raw.githubusercontent.com/SevenIndirecto/tampermonkey-scripts/refs/heads/master/cardmarket.com-shipping-estimator/cm-shipping-estimator.user.js
-// @downloadURL  https://raw.githubusercontent.com/SevenIndirecto/tampermonkey-scripts/refs/heads/master/cardmarket.com-shipping-estimator/cm-shipping-estimator.user.js
+// @namespace    https://github.com/SevenIndirecto/tampermonkey-scripts/raw/refs/heads/master/cardmarket.com-shipping-estimator/
+// @updateURL    https://github.com/SevenIndirecto/tampermonkey-scripts/raw/refs/heads/master/cardmarket.com-shipping-estimator/cm-shipping-estimator.user.js
+// @downloadURL  https://github.com/SevenIndirecto/tampermonkey-scripts/raw/refs/heads/master/cardmarket.com-shipping-estimator/cm-shipping-estimator.user.js
 // @match        https://www.cardmarket.com/*/Magic/Products/Singles/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=cardmarket.com
 // @grant        none

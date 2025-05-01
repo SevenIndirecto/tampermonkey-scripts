@@ -3,9 +3,9 @@
 // @version      0.1.0
 // @description  Autofill Import / Export registered letter form on posta.si for help help with cardmarket shipments
 // @author       seven
-// @namespace    https://raw.githubusercontent.com/SevenIndirecto/tampermonkey-scripts/refs/heads/master/uvoz-izvoz.posta.si-letter-auto-fill-for-cardmarket
-// @updateURL    https://raw.githubusercontent.com/SevenIndirecto/tampermonkey-scripts/refs/heads/master/uvoz-izvoz.posta.si-letter-auto-fill-for-cardmarket/posta.si-import-export-autofill.user.js
-// @downloadURL  https://raw.githubusercontent.com/SevenIndirecto/tampermonkey-scripts/refs/heads/master/uvoz-izvoz.posta.si-letter-auto-fill-for-cardmarket/posta.si-import-export-autofill.user.js
+// @namespace    https://github.com/SevenIndirecto/tampermonkey-scripts/raw/refs/heads/master/uvoz-izvoz.posta.si-letter-auto-fill-for-cardmarket/
+// @updateURL    https://github.com/SevenIndirecto/tampermonkey-scripts/raw/refs/heads/master/uvoz-izvoz.posta.si-letter-auto-fill-for-cardmarket/posta.si-import-export-autofill.user.js
+// @downloadURL  https://github.com/SevenIndirecto/tampermonkey-scripts/raw/refs/heads/master/uvoz-izvoz.posta.si-letter-auto-fill-for-cardmarket/posta.si-import-export-autofill.user.js
 // @match        https://uvoz-izvoz.posta.si/en/export/shipment*
 // @icon         data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==
 // @grant        none

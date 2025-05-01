@@ -3,9 +3,9 @@
 // @version      0.1.5
 // @description  Creates a local browser database of all your cardmarket.com orders, allowing you to search through them quickly.
 // @author       seven
-// @namespace    https://raw.githubusercontent.com/SevenIndirecto/tampermonkey-scripts/refs/heads/master/cardmarket.com-quick-history-search
-// @updateURL    https://raw.githubusercontent.com/SevenIndirecto/tampermonkey-scripts/refs/heads/master/cardmarket.com-quick-history-search/cm-quick-history-search.user.js
-// @downloadURL  https://raw.githubusercontent.com/SevenIndirecto/tampermonkey-scripts/refs/heads/master/cardmarket.com-quick-history-search/cm-quick-history-search.user.js
+// @namespace    https://github.com/SevenIndirecto/tampermonkey-scripts/raw/refs/heads/master/cardmarket.com-quick-history-search/
+// @updateURL    https://github.com/SevenIndirecto/tampermonkey-scripts/raw/refs/heads/master/cardmarket.com-quick-history-search/cm-quick-history-serach.user.js
+// @downloadURL  https://github.com/SevenIndirecto/tampermonkey-scripts/raw/refs/heads/master/cardmarket.com-quick-history-search/cm-quick-history-serach.user.js
 // @match        https://www.cardmarket.com/*/*/Orders/Search?userType=buyer
 // @match        https://www.cardmarket.com/*/*/Orders/Search?userType=seller
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=cardmarket.com

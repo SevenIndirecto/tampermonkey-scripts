@@ -10,7 +10,7 @@
 ## Initial Setup
 
 1. For general Tampermonkey setup see: https://github.com/SevenIndirecto/tampermonkey-scripts
-2. Open https://raw.githubusercontent.com/SevenIndirecto/tampermonkey-scripts/refs/heads/master/cardmarket.com-shipping-estimator/cm-shipping-estimator.user.js and Tampermonkey should prompt you to install. Otherwise add it manually.
+2. Open https://github.com/SevenIndirecto/tampermonkey-scripts/raw/refs/heads/master/cardmarket.com-shipping-estimator/cm-shipping-estimator.user.js and Tampermonkey should prompt you to install. Otherwise add it manually.
 
 ## Usage
 

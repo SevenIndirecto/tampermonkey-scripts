@@ -10,7 +10,7 @@ This script will keep a local copy of your order history in your browser, allowi
 ## Initial Setup
 
 1. For general Tampermonkey setup see: https://github.com/SevenIndirecto/tampermonkey-scripts
-2. Open https://raw.githubusercontent.com/SevenIndirecto/tampermonkey-scripts/refs/heads/master/cardmarket.com-quick-history-search/cm-quick-history-search.user.js and Tampermonkey should prompt you to install. Otherwise add it manually.
+2. Open https://github.com/SevenIndirecto/tampermonkey-scripts/raw/refs/heads/master/cardmarket.com-quick-history-search/cm-quick-history-serach.user.js and Tampermonkey should prompt you to install. Otherwise add it manually.
 3. For your first time using this script, you'll need to wait a while, while the script builds a local browser copy of your order history. This will take a while since requests to CardMarket are throttled / rate limited to avoid getting blocked by cardmarket. It took about an hour on a 14 year old account with 1500+ orders.
 
 ## Usage

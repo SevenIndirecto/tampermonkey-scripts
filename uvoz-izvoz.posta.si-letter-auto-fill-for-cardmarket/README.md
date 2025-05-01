@@ -15,7 +15,7 @@ This script will add an "Auto Fill Form" Button to https://uvoz-izvoz.posta.si/e
 ## Initial Setup
 
 1. For general Tampermonkey setup see: https://github.com/SevenIndirecto/tampermonkey-scripts
-2. Open https://raw.githubusercontent.com/SevenIndirecto/tampermonkey-scripts/refs/heads/master/uvoz-izvoz.posta.si-letter-auto-fill-for-cardmarket/posta.si-import-export-autofill.user.js and Tampermonkey should prompt you to install. Otherwise add it manually.
+2. Open https://github.com/SevenIndirecto/tampermonkey-scripts/raw/refs/heads/master/uvoz-izvoz.posta.si-letter-auto-fill-for-cardmarket/posta.si-import-export-autofill.user.js and Tampermonkey should prompt you to install. Otherwise add it manually.
 4. Input your own address under the `// Personalize here` section (between `"..."`) and save.
 5. Note that after setting up your personalized settings you shouldn't update the script anymore, or you'll need to update them again. However the script is stable, so unlikely it will need updates until posta.si changes something.
 
