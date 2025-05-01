@@ -4,7 +4,8 @@
 
 ## What is it?
 
-This script automatically adds shipping estimates to the Singles page on CardMarket/Magic.
+* This script automatically adds shipping estimates to the Singles page on CardMarket/Magic.
+* A secondary function is that the script hides offers from users that won't ship to you.
 
 ## Initial Setup
 

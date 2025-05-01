@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Cardmarket.com Shipping Estimator
-// @version      0.1.1
-// @description  Add estimated shipping prices to Cardmarket Singles page
+// @version      0.1.2
+// @description  Add estimated shipping prices to Cardmarket Singles page and hide offers for sellers not shipping to you.
 // @author       seven
 // @namespace    https://raw.githubusercontent.com/SevenIndirecto/tampermonkey-scripts/refs/heads/master/cardmarket.com-shipping-estimator
 // @updateURL    https://raw.githubusercontent.com/SevenIndirecto/tampermonkey-scripts/refs/heads/master/cardmarket.com-shipping-estimator/cm-shipping-estimator.user.js
@@ -14,43 +14,46 @@
 (function() {
     'use strict';
 
-    // TODO: In the process of updating prices
-    // Shipping prices for Slovenia.
+    // Change this to true if you don't want to auto hide users who don't shop to you.
+    const DISABLE_AUTO_HIDE_FOR_USERS_NOT_SHIPPING_TO_ME = false;
+
+    // Shipping prices are for Slovenia.
+    // NOTE: You can use https://www.cardmarket.com/en/Magic/Users country search to find users
     const SHIPPING_PRICES = {
-        'Austria': { regular: 2.6, tracked: 6.45 },
+        'Austria': { regular: 2.6, tracked: 6.75 },
         'Belgium': { regular: 3.20, tracked: 10.30 },
-        'Bulgaria': { regular: 2.4, tracked: 5.52 },
-        'Canada': { regular: 3.9, tracked: 14.1 }, // todo
-        'Croatia': { regular: 2.5, tracked: 4.69 },
-        'Czech Republic': { regular: 2.22, tracked: 5.33 }, // ok
+        'Bulgaria': { regular: 2.4, tracked: 6.23 },
+        'Canada': { regular: 3.9, tracked: 14.1 }, // Needs 2025 updates
+        'Croatia': { regular: 2.5, tracked: 5.90 },
+        'Czech Republic': { regular: 2.23, tracked: 5.36 },
         'Cyprus': { regular: 0.94, tracked: 3.38 },
-        'Denmark': { regular: 7.21, tracked: 23.29 }, // ok
-        'Estonia': { regular: 2.2, tracked: 11.40 }, // todo
-        'Finland': { regular: 3.05, tracked: 20.65 }, // ok
-        'France': { regular: 2.1, tracked: 6.95 },
-        'Germany': { regular: 1.4, tracked: 14.99 },
-        'Greece': { regular: 2.3, tracked: 5.5 },
-        'Hungary': { regular: 2.67, tracked: 7.67 },
-        'Iceland': { regular: 2.07, tracked: 9.44 },
-        'Ireland': { regular: 2.5, tracked: 11 },
-        'Italy': { regular: 3.8, tracked: 11.2 },
-        // 'Japan': { regular: null, tracked: null }, - no sellers active currently
-        'Latvia': { regular: 2.12, tracked: 6.34 },
-        'Liechtenstein': { regular: 1.84, tracked: 9.33 },
-        'Lithuania': { regular: 1.7, tracked: 5.3 },
-        'Luxembourg': { regular: 1.7, tracked: 3.9 },
-        'Malta': { regular: 2, tracked: 8.3 },
-        'Netherlands': { regular: 1.95, tracked: 7.9 },
-        'Norway': { regular: 2.81, tracked: 21.64 },
-        'Poland': { regular: 2.63, tracked: 4.69 },
-        'Portugal': { regular: 2.6, tracked: 6.45 },
-        'Romania': { regular: 2.53, tracked: 4.96 },
-        'Slovenia': { regular: 1.58, tracked: 3.18 },
-        'Slovakia': { regular: 1.8, tracked: 6.7 },
-        'Spain': { regular: 2.25, tracked: 7.25 },
-        'Sweden': { regular: 2.97, tracked: 11.07 },
-        'Switzerland': { regular: 4.61, tracked: 10.76 },
-        'United Kingdom': { regular: 2.92, tracked: 10.87 },
+        'Denmark': { regular: 7.20, tracked: 23.28 },
+        'Estonia': { regular: 2.9, tracked: 11.40 },
+        'Finland': { regular: 3.05, tracked: 20.65 },
+        'France': { regular: 2.4, tracked: 7.8 },
+        'Germany': { regular: 1.55, tracked: 15.49 },
+        'Greece': { regular: 3.3, tracked: 7.5 },
+        'Hungary': { regular: 3.64, tracked: 10.08 },
+        'Iceland': { regular: 2.57, tracked: 10.67 },
+        'Ireland': { regular: 2.95, tracked: 11.70 },
+        'Italy': { regular: 4.05, tracked: 12 },
+        // 'Japan': { regular: null, tracked: null }, - no active sellers currently
+        'Latvia': { regular: 2.84, tracked: 6.10 },
+        'Liechtenstein': { regular: 1.91, tracked: 9.7 },
+        'Lithuania': { regular: 2.4, tracked: 6.25 },
+        'Luxembourg': { regular: 2.0, tracked: 7.7 },
+        'Malta': { regular: 2.51, tracked: 10.79 },
+        'Netherlands': { regular: 2.2, tracked: 12.45 },
+        'Norway': { regular: 3.11, tracked: 24.63 },
+        'Poland': { regular: 2.64, tracked: 5.64 },
+        'Portugal': { regular: 2.85, tracked: 7.27 },
+        'Romania': { regular: 3.34, tracked: 5.77 },
+        'Slovenia': { regular: 1.88, tracked: 3.84 },
+        'Slovakia': { regular: 2.7, tracked: 8.2 },
+        'Spain': { regular: 2.45, tracked: 7.6 },
+        'Sweden': { regular: 4.33, tracked: 13.67 },
+        'Switzerland': { regular: 4.78, tracked: 11.73 },
+        'United Kingdom': { regular: 4.2, tracked: 12.22 },
     };
     const MODIFIER_CLASS = '_modified';
 
@@ -83,7 +86,6 @@
     }
 
     function processUnmodifiedRows() {
-        // const articleRows = document.getElementsByClassName('article-row');
         const articleRows = document.querySelectorAll('.article-row:not(._modified)');
 
         for (const offer of articleRows) {
@@ -102,7 +104,7 @@
                 offer.classList.add(MODIFIER_CLASS);
 
                 // Hide sellers not selling to me.
-                if (offer.querySelector('.col-offer .btn-grey')) {
+                if (!DISABLE_AUTO_HIDE_FOR_USERS_NOT_SHIPPING_TO_ME && offer.querySelector('.col-offer .btn-grey')) {
                    offer.style.display = 'none';
                 }
             } catch (e) {
