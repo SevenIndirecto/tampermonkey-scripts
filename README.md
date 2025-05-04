@@ -1,5 +1,5 @@
 # About
-Various useful and possibly quite niche Tampermonkey scripts which I can share publicaly.
+Various useful and possibly quite niche Tampermonkey scripts which I can share publicly.
 
 ## Required software - Browser + Tampermonkey (or similar)
 
