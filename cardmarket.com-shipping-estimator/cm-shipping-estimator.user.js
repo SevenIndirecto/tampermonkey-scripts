@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Cardmarket.com Shipping Estimator
 // @version      0.1.2
-// @description  Add estimated shipping prices to Cardmarket Singles page and hide offers for sellers not shipping to you.
+// @description  Add estimated shipping prices to Cardmarket Singles page and hide offers by sellers not shipping to you.
 // @author       seven
 // @namespace    https://github.com/SevenIndirecto/tampermonkey-scripts/raw/refs/heads/master/cardmarket.com-shipping-estimator/
 // @updateURL    https://github.com/SevenIndirecto/tampermonkey-scripts/raw/refs/heads/master/cardmarket.com-shipping-estimator/cm-shipping-estimator.user.js

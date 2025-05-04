@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Posta.si Auto-Fill for Cardmarket.com registered shipments
 // @version      0.1.0
-// @description  Autofill Import / Export registered letter form on posta.si for help help with cardmarket shipments
+// @description  Autofill Import / Export registered letter form on posta.si for help with cardmarket shipments
 // @author       seven
 // @namespace    https://github.com/SevenIndirecto/tampermonkey-scripts/raw/refs/heads/master/uvoz-izvoz.posta.si-letter-auto-fill-for-cardmarket/
 // @updateURL    https://github.com/SevenIndirecto/tampermonkey-scripts/raw/refs/heads/master/uvoz-izvoz.posta.si-letter-auto-fill-for-cardmarket/posta.si-import-export-autofill.user.js

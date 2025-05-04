@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Cardmarket.com Quick Order History Search
-// @version      0.1.5
+// @version      0.1.6
 // @description  Creates a local browser database of all your cardmarket.com orders, allowing you to search through them quickly.
 // @author       seven
 // @namespace    https://github.com/SevenIndirecto/tampermonkey-scripts/raw/refs/heads/master/cardmarket.com-quick-history-search/
@@ -136,9 +136,16 @@
      * @param {Date} toDate 
      * @param {string} storeName 
      */
-    async function fetchAndStoreOrders(fromDate, toDate, storeName, displayStatusUpdates = true, delayBetweenFetches = CONFIG_DELAY_BETWEEN_FETCHES) {
+    async function fetchAndStoreOrders(
+        fromDate, 
+        toDate, 
+        storeName, 
+        displayStatusUpdates = true, 
+        page = 1, 
+        delayBetweenFetches = CONFIG_DELAY_BETWEEN_FETCHES
+    ) {
         if (displayStatusUpdates) {
-            updateStatus(`Fetching orders from ${formatDate(fromDate)} to ${formatDate(toDate)}...`);
+            updateStatus(`Fetching ${storeName} orders page ${page} in date range ${formatDate(fromDate)} to ${formatDate(toDate)}...`);
         }
         const userType = storeName === STORE_NAME_BUYS ? 'buyer' : 'seller';
         const baseUrl = 'https://www.cardmarket.com/en/Magic/Orders/Search/Results';
@@ -147,7 +154,7 @@
         const toDateStr = toDate.toISOString().split('T')[0];
 
         const SHIPMENT_STATUS_PAST = '200';
-        const url = `${baseUrl}?userType=${userType}&minDate=${fromDateStr}&maxDate=${toDateStr}&shipmentStatus=${SHIPMENT_STATUS_PAST}`;
+        const url = `${baseUrl}?userType=${userType}&minDate=${fromDateStr}&maxDate=${toDateStr}&shipmentStatus=${SHIPMENT_STATUS_PAST}&site=${page}`;
 
         const response = await fetch(url);
         const data = await response.text();
@@ -170,6 +177,11 @@
             const products = await fetchOrderProducts(orderUrl, delayBetweenFetches);
             await storeOrderToDb({ products, orderUrl, status, user, date }, storeName, delayBetweenFetches);
             await wait(delayBetweenFetches);
+        }
+
+        // If we have additional pages, fetch next page
+        if (htmlDoc.querySelector('.pagination-control[data-direction=next]:not(.disabled)')) {
+            await fetchAndStoreOrders(fromDate, toDate, storeName, displayStatusUpdates, page + 1, delayBetweenFetches);
         }
     }
 
@@ -262,9 +274,9 @@
             const increment = 58 * 24 * 60 * 60 * 1000;
             for (let fromTime = startTime; fromTime < endTime; fromTime += increment) {
                 // Fetch in intervals of 1000ms for the first 2 intervals, then back to normal delay
-                const delayBetweenFetches = intervalsFetched < 2 ? 1000 : CONFIG_DELAY_BETWEEN_FETCHES;
+                const delayBetweenFetches = intervalsFetched < 2 ? 1500 : CONFIG_DELAY_BETWEEN_FETCHES;
                 const toDate = new Date(fromTime + increment);
-                await fetchAndStoreOrders(new Date(fromTime), toDate, storeName, false, delayBetweenFetches);
+                await fetchAndStoreOrders(new Date(fromTime), toDate, storeName, false, 1, delayBetweenFetches);
                 await db.put(storeName, { key: SYNCED_TO_DATE_KEY, date: toDate > new Date() ? new Date() : toDate });
                 intervalsFetched++;
             }
