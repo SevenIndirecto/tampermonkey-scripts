@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Cardmarket.com Quick Order History Search
-// @version      0.1.6
+// @version      0.1.7
 // @description  Creates a local browser database of all your cardmarket.com orders, allowing you to search through them quickly.
 // @author       seven
 // @namespace    https://github.com/SevenIndirecto/tampermonkey-scripts/raw/refs/heads/master/cardmarket.com-quick-history-search/
@@ -24,6 +24,7 @@
     const STORE_NAME_SELLS = 'sells';
 
     const SYNCED_TO_DATE_KEY = '_synced-to-date';
+    const SYNCED_ORDERS_LOCAL_STORAGE_KEY = '_cm-helper-synced-orders';
 
     // Utils
     const logPrefix = '[MonkeyScript-MKM]';
@@ -142,7 +143,8 @@
         storeName, 
         displayStatusUpdates = true, 
         page = 1, 
-        delayBetweenFetches = CONFIG_DELAY_BETWEEN_FETCHES
+        delayBetweenFetches = CONFIG_DELAY_BETWEEN_FETCHES,
+        skipAlreadySyncedOrders = false,
     ) {
         if (displayStatusUpdates) {
             updateStatus(`Fetching ${storeName} orders page ${page} in date range ${formatDate(fromDate)} to ${formatDate(toDate)}...`);
@@ -164,11 +166,22 @@
         const ordersTable = htmlDoc.querySelector('#StatusTable');
         const rows = ordersTable.querySelectorAll('.table-body > div');
 
+        // This enables a much faster auto-sync, since we're only dealing with finished orders anyway.
+        let alreadySyncedOrders = new Set();
+        try {
+            alreadySyncedOrders = new Set(JSON.parse(localStorage.getItem(SYNCED_ORDERS_LOCAL_STORAGE_KEY) ?? '[]'));
+        } catch {}
+        let synceOrdersModified = false;
+
         for (const [index, row] of rows.entries()) {
             if (displayStatusUpdates) {
                 updateStatus(`Processing order ${index + 1} of ${rows.length} from ${formatDate(fromDate)} to ${formatDate(toDate)}...`);
             }
             const orderUrl = row.dataset.url;
+            const orderId = parseInt(orderUrl.split('/')[4]);
+            if (skipAlreadySyncedOrders && alreadySyncedOrders.has(orderId)) {
+                continue;
+            }
             const status = row.querySelector('.col-status div')?.innerText ?? 'Unknown';
             const user = row.querySelector('.seller-name span:nth-child(2) span')?.innerText ?? 'Unknown';
             const dateStr = row.querySelector('.col-datetime span')?.innerText ?? null;
@@ -176,7 +189,15 @@
 
             const products = await fetchOrderProducts(orderUrl, delayBetweenFetches);
             await storeOrderToDb({ products, orderUrl, status, user, date }, storeName, delayBetweenFetches);
+            alreadySyncedOrders.add(orderId);
+            synceOrdersModified = true;
             await wait(delayBetweenFetches);
+        }
+
+        if (synceOrdersModified) {
+            try {
+                localStorage.setItem(SYNCED_ORDERS_LOCAL_STORAGE_KEY, JSON.stringify(Array.from(alreadySyncedOrders)));
+            } catch {}
         }
 
         // If we have additional pages, fetch next page
@@ -276,7 +297,7 @@
                 // Fetch in intervals of 1000ms for the first 2 intervals, then back to normal delay
                 const delayBetweenFetches = intervalsFetched < 2 ? 1500 : CONFIG_DELAY_BETWEEN_FETCHES;
                 const toDate = new Date(fromTime + increment);
-                await fetchAndStoreOrders(new Date(fromTime), toDate, storeName, false, 1, delayBetweenFetches);
+                await fetchAndStoreOrders(new Date(fromTime), toDate, storeName, false, 1, delayBetweenFetches, true);
                 await db.put(storeName, { key: SYNCED_TO_DATE_KEY, date: toDate > new Date() ? new Date() : toDate });
                 intervalsFetched++;
             }
