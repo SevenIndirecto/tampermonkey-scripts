@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Enhance 1337x.to search results
-// @version      0.1.0
+// @version      0.1.1
 // @description  Adds magnet links straight to search results page
 // @author       seven
 // @namespace    https://github.com/SevenIndirecto/tampermonkey-scripts/raw/refs/heads/master/1337x-tweaks
@@ -51,7 +51,8 @@
         const data = await response.text();
         const parser = new DOMParser();
         const htmlDoc = parser.parseFromString(data, 'text/html');
-        return htmlDoc.querySelector('#openPopup').href;
+        const magnet = htmlDoc.querySelector('a[href^="magnet:"]');
+        return magnet?.href ?? '';
     }
 
     function init() {
