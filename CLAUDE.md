@@ -24,6 +24,13 @@ Each script lives in its own folder: `<site>-<purpose>/name.user.js` + `README.m
   as localized tooltip text (`data-bs-original-title` / `aria-label`, "Item location: X"),
   set by Bootstrap shortly *after* page load; parsing it is English-only, so `@match`
   should target `/en/` paths.
+- `www.cardmarket.com` localStorage can be completely full (a VWO analytics blob has
+  been seen occupying the entire quota) — scripts that cache must handle
+  `QuotaExceededError`, e.g. fall back to sessionStorage.
+- The user-offers Wants filter is a plain GET param: `/en/Magic/Users/<seller>/Offers/
+  Singles?idWantslist=<id>` (+`&site=<n>` pagination); total is in `.pagination` text
+  ("N Hits"); a zero-hit result drops the pagination bar and wantslist select but keeps
+  an empty `#UserOffersTable`.
 - Cardmarket rules that matter for estimates: registered shipping is mandatory ≥ 25 €;
   shipping method is the cheapest one whose max value/weight covers the cart; prices on
   the help page include the packaging fee; non-eurozone prices are FX snapshots (~±3%).
