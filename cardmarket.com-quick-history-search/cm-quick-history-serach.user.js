@@ -1,13 +1,12 @@
 // ==UserScript==
 // @name         Cardmarket.com Quick Order History Search
-// @version      0.1.7
+// @version      0.2.0
 // @description  Creates a local browser database of all your cardmarket.com orders, allowing you to search through them quickly.
 // @author       seven
 // @namespace    https://github.com/SevenIndirecto/tampermonkey-scripts/raw/refs/heads/master/cardmarket.com-quick-history-search/
 // @updateURL    https://github.com/SevenIndirecto/tampermonkey-scripts/raw/refs/heads/master/cardmarket.com-quick-history-search/cm-quick-history-serach.user.js
 // @downloadURL  https://github.com/SevenIndirecto/tampermonkey-scripts/raw/refs/heads/master/cardmarket.com-quick-history-search/cm-quick-history-serach.user.js
-// @match        https://www.cardmarket.com/*/*/Orders/Search?userType=buyer
-// @match        https://www.cardmarket.com/*/*/Orders/Search?userType=seller
+// @match        https://www.cardmarket.com/*/*/Orders/Search*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=cardmarket.com
 // @require      https://cdn.jsdelivr.net/npm/idb@8/build/umd.js
 // @grant        none
@@ -17,7 +16,7 @@
 (function () {
     // Config
     const CONFIG_DELAY_BETWEEN_FETCHES = 3000; // in milliseconds
-    const DEBUG = true;
+    const DEBUG = false;
 
     // IndexedDB stores
     const STORE_NAME_BUYS = 'buys';
@@ -36,6 +35,21 @@
 
     function wait(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    async function fetchDoc(url) {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`Request failed with status ${response.status} for ${url}`);
+        }
+        const data = await response.text();
+        return new DOMParser().parseFromString(data, 'text/html');
+    }
+
+    function escapeHtml(str) {
+        return String(str).replace(/[&<>"']/g, c => (
+            { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+        ));
     }
 
     /**
@@ -103,14 +117,9 @@
         await db.clear(storeName);
 
         // Get user registration date
-        const url = 'https://www.cardmarket.com/en/Magic/Account';
-        const response = await fetch(url);
-        const data = await response.text();
-
         updateStatus('Fetching registration date...');
-        const parser = new DOMParser();
-        const htmlDoc = parser.parseFromString(data, 'text/html');
-        const registrationDateStr = htmlDoc.querySelector('.account-info .row:nth-child(3) div:nth-child(2)').innerText;
+        const htmlDoc = await fetchDoc('https://www.cardmarket.com/en/Magic/Account');
+        const registrationDateStr = htmlDoc.querySelector('.account-info .row:nth-child(3) div:nth-child(2)')?.innerText;
         if (!registrationDateStr) {
             updateStatus('[ERROR] No registration date found. Aborting.');
             return;
@@ -158,12 +167,13 @@
         const SHIPMENT_STATUS_PAST = '200';
         const url = `${baseUrl}?userType=${userType}&minDate=${fromDateStr}&maxDate=${toDateStr}&shipmentStatus=${SHIPMENT_STATUS_PAST}&site=${page}`;
 
-        const response = await fetch(url);
-        const data = await response.text();
-
-        const parser = new DOMParser();
-        const htmlDoc = parser.parseFromString(data, 'text/html');
+        const htmlDoc = await fetchDoc(url);
         const ordersTable = htmlDoc.querySelector('#StatusTable');
+        if (!ordersTable) {
+            // Happens when cardmarket rejects the request (logged out, rate limited, invalid date range...)
+            const alertText = htmlDoc.querySelector('.alert')?.textContent?.trim();
+            throw new Error(alertText || 'No orders table found in response.');
+        }
         const rows = ordersTable.querySelectorAll('.table-body > div');
 
         // This enables a much faster auto-sync, since we're only dealing with finished orders anyway.
@@ -171,7 +181,7 @@
         try {
             alreadySyncedOrders = new Set(JSON.parse(localStorage.getItem(SYNCED_ORDERS_LOCAL_STORAGE_KEY) ?? '[]'));
         } catch {}
-        let synceOrdersModified = false;
+        let syncedOrdersModified = false;
 
         for (const [index, row] of rows.entries()) {
             if (displayStatusUpdates) {
@@ -187,14 +197,14 @@
             const dateStr = row.querySelector('.col-datetime span')?.innerText ?? null;
             const date = dateStr ? cmcDateStringToDate(dateStr) : new Date();
 
-            const products = await fetchOrderProducts(orderUrl, delayBetweenFetches);
-            await storeOrderToDb({ products, orderUrl, status, user, date }, storeName, delayBetweenFetches);
+            const products = await fetchOrderProducts(orderUrl);
+            await storeOrderToDb({ products, orderUrl, status, user, date }, storeName);
             alreadySyncedOrders.add(orderId);
-            synceOrdersModified = true;
+            syncedOrdersModified = true;
             await wait(delayBetweenFetches);
         }
 
-        if (synceOrdersModified) {
+        if (syncedOrdersModified) {
             try {
                 localStorage.setItem(SYNCED_ORDERS_LOCAL_STORAGE_KEY, JSON.stringify(Array.from(alreadySyncedOrders)));
             } catch {}
@@ -202,7 +212,7 @@
 
         // If we have additional pages, fetch next page
         if (htmlDoc.querySelector('.pagination-control[data-direction=next]:not(.disabled)')) {
-            await fetchAndStoreOrders(fromDate, toDate, storeName, displayStatusUpdates, page + 1, delayBetweenFetches);
+            await fetchAndStoreOrders(fromDate, toDate, storeName, displayStatusUpdates, page + 1, delayBetweenFetches, skipAlreadySyncedOrders);
         }
     }
 
@@ -211,31 +221,28 @@
      * @returns {Promise<string[]>}
      */
     async function fetchOrderProducts(orderUrl) {
-        const url = `https://www.cardmarket.com${orderUrl}`;
-        const response = await fetch(url);
-        const data = await response.text();
-
-        const parser = new DOMParser();
-        const htmlDoc = parser.parseFromString(data, 'text/html');
+        const htmlDoc = await fetchDoc(`https://www.cardmarket.com${orderUrl}`);
         const productRows = htmlDoc.querySelectorAll('.product-table > tbody > tr');
 
         const products = new Set();
         for (const productRow of productRows) {
-            products.add(productRow.dataset.name);
+            if (productRow.dataset.name) {
+                products.add(productRow.dataset.name);
+            }
         }
         return Array.from(products);
     }
 
-    let dbSingleton = null;
-    async function getDb() {
-        if (dbSingleton) {
-            return dbSingleton;
+    let dbPromise = null;
+    function getDb() {
+        if (dbPromise) {
+            return dbPromise;
         }
 
         const dbName = 'cardmarket-orders';
         const dbVersion = 3;
 
-        dbSingleton = await idb.openDB(dbName, dbVersion, {
+        dbPromise = idb.openDB(dbName, dbVersion, {
             upgrade(db, oldVersion, newVersion, transaction, event) {
                 const objectStoreProperties = {
                     // The key will be a lower-case string of the article name
@@ -255,7 +262,7 @@
             },
         });
 
-        return dbSingleton;
+        return dbPromise;
     }
 
     function setRebuildHistoryButtonDisabledState(disabled) {
@@ -279,41 +286,49 @@
 
         let intervalsFetched = 0;
         const db = await getDb();
-        for (const storeName of storeSyncOrder) {
-            const syncedToDate = (await db.get(storeName, SYNCED_TO_DATE_KEY))?.date;
-            // If no sync yet or if synced to date was less than 4 hours ago, skip
-            if (!syncedToDate || (new Date().getTime() - syncedToDate.getTime()) < 4 * 60 * 60 * 1000) {
-                continue;
-            }
-            document.getElementById('_cm-helper-rebuild-history').innerText = 'Auto-syncing...';
+        try {
+            for (const storeName of storeSyncOrder) {
+                const syncedToDate = (await db.get(storeName, SYNCED_TO_DATE_KEY))?.date;
+                // If no sync yet or if synced to date was less than 4 hours ago, skip
+                if (!syncedToDate || (new Date().getTime() - syncedToDate.getTime()) < 4 * 60 * 60 * 1000) {
+                    continue;
+                }
+                document.getElementById('_cm-helper-rebuild-history').innerText = 'Auto-syncing...';
 
-            log(`Auto-syncing ${storeName} from ${formatDate(syncedToDate)} to today...`);
-            // Start syncing 44 days before sync date, up to today in increments of 58 days. 
-            // Assuming the user logs in at least once every 14 days, they'll sync one "2 month update period" per store.
-            const startTime = syncedToDate.getTime() - 44 * 24 * 60 * 60 * 1000;
-            const endTime = Date.now();
-            const increment = 58 * 24 * 60 * 60 * 1000;
-            for (let fromTime = startTime; fromTime < endTime; fromTime += increment) {
-                // Fetch in intervals of 1000ms for the first 2 intervals, then back to normal delay
-                const delayBetweenFetches = intervalsFetched < 2 ? 1500 : CONFIG_DELAY_BETWEEN_FETCHES;
-                const toDate = new Date(fromTime + increment);
-                await fetchAndStoreOrders(new Date(fromTime), toDate, storeName, false, 1, delayBetweenFetches, true);
-                await db.put(storeName, { key: SYNCED_TO_DATE_KEY, date: toDate > new Date() ? new Date() : toDate });
-                intervalsFetched++;
+                log(`Auto-syncing ${storeName} from ${formatDate(syncedToDate)} to today...`);
+                // Start syncing 44 days before sync date, up to today in increments of 58 days.
+                // Assuming the user logs in at least once every 14 days, they'll sync one "2 month update period" per store.
+                const startTime = syncedToDate.getTime() - 44 * 24 * 60 * 60 * 1000;
+                const endTime = Date.now();
+                const increment = 58 * 24 * 60 * 60 * 1000;
+                for (let fromTime = startTime; fromTime < endTime; fromTime += increment) {
+                    // Fetch with a shorter delay for the first 2 intervals, then back to normal delay
+                    const delayBetweenFetches = intervalsFetched < 2 ? 1500 : CONFIG_DELAY_BETWEEN_FETCHES;
+                    const toDate = new Date(fromTime + increment);
+                    await fetchAndStoreOrders(new Date(fromTime), toDate, storeName, false, 1, delayBetweenFetches, true);
+                    await db.put(storeName, { key: SYNCED_TO_DATE_KEY, date: toDate > new Date() ? new Date() : toDate });
+                    intervalsFetched++;
+                }
+                log(`Auto-synced ${storeName} from ${formatDate(syncedToDate)} to today`);
             }
-            log(`Auto-synced ${storeName} from ${formatDate(syncedToDate)} to today`);
+        } catch (error) {
+            updateStatus(`[ERROR] Auto-sync failed: ${error.message}`);
+        } finally {
+            if (previousBuiltHistoryButtonText) {
+                document.getElementById('_cm-helper-rebuild-history').innerText = previousBuiltHistoryButtonText;
+            }
+            setRebuildHistoryButtonDisabledState(false);
+            await updateSyncStatusDisplay();
         }
-
-        if (previousBuiltHistoryButtonText) {
-            document.getElementById('_cm-helper-rebuild-history').innerText = previousBuiltHistoryButtonText;
-        }
-        setRebuildHistoryButtonDisabledState(false);
-        await updateSyncStatusDisplay();
     }
 
     async function initQuickHistory() {
         // Setup UI
         const container = document.getElementById('OrderSearchForm');
+        if (!container) {
+            // The broad @match also covers pages without the search form (e.g. /Orders/Search/Results)
+            return;
+        }
         container.insertAdjacentHTML('beforebegin', `
             <style>
                 ._cm-helper-container { 
@@ -378,8 +393,7 @@
                 <div class="_cm-helper-controls">
                     <form id="_cm-helper-search-form" class="_cm-helper-search-form">
                         <span class="small">
-                            Search by inputing the start or full name of what you're looking for. 
-                            <br>Searching for "Light" will find "Lightning Bolt" but searching for "Bolt" won't.
+                            Search by any part of the name — "Bolt" will find "Lightning Bolt".
                             <br>Only searches through finished (past) orders.
                         </span>
                         <div class="_cm-helper-search-controls">
@@ -400,7 +414,7 @@
                 </div>
 
                 <div id="_cm-helper-status"></div>
-                <div id="_cm-helper-results"/>
+                <div id="_cm-helper-results"></div>
             </div>
         `);
 
@@ -431,13 +445,18 @@
             }
             const cleanResponse = response.toLowerCase().trim();
             setRebuildHistoryButtonDisabledState(true);
-            if (cleanResponse.includes('sells')) {
-                await rebuildHistory(STORE_NAME_SELLS);
+            try {
+                if (cleanResponse.includes('sells')) {
+                    await rebuildHistory(STORE_NAME_SELLS);
+                }
+                if (cleanResponse.includes('buys')) {
+                    await rebuildHistory(STORE_NAME_BUYS);
+                }
+            } catch (error) {
+                updateStatus(`[ERROR] Rebuild failed: ${error.message}`);
+            } finally {
+                setRebuildHistoryButtonDisabledState(false);
             }
-            if (cleanResponse.includes('buys')) {
-                await rebuildHistory(STORE_NAME_BUYS);
-            }
-            setRebuildHistoryButtonDisabledState(false);
         });
 
         // Produces /en/Magic
@@ -447,21 +466,25 @@
             const needle = document.getElementById('_cm-helper-product-name').value;
             const storeName = document.getElementById('_cm-helper-buys').checked ? STORE_NAME_BUYS : STORE_NAME_SELLS;
             const orders = await findOrdersWithProduct(needle, storeName);
-            document.getElementById('_cm-helper-results').innerHTML = '<ul>' + orders.map(order => `
+            document.getElementById('_cm-helper-results').innerHTML = '<ul>' + orders.map(order => {
+                const orderId = escapeHtml(order.orderUrl.split('/')[4]);
+                const user = escapeHtml(order.user);
+                return `
                 <li class="order">
-                    <a href="${baseRelativeUrl}/Orders/${order.orderUrl.split('/')[4]}" target="_blank">${order.orderUrl.split('/')[4]}</a>
-                    (<span class="status"><strong>${order.status}</strong></span> / 
+                    <a href="${baseRelativeUrl}/Orders/${orderId}" target="_blank">${orderId}</a>
+                    (<span class="status"><strong>${escapeHtml(order.status)}</strong></span> /
                     <span class="date">${formatDate(order.date)}</span>)
-                    <span class="user"><a href="${baseRelativeUrl}/Users/${order.user}" target="_blank">${order.user}</a></span>
-                </li>
-            `).join('') + '</ul>';
+                    <span class="user"><a href="${baseRelativeUrl}/Users/${user}" target="_blank">${user}</a></span>
+                </li>`;
+            }).join('') + '</ul>';
         });
     }
 
     async function storeOrderToDb({ products, orderUrl, status, user, date }, storeName) {
         const db = await getDb();
         for (const productName of products) {
-            const product = await getOrCreateProduct(storeName, productName);
+            const productKey = productName.toLowerCase();
+            const product = (await db.get(storeName, productKey)) ?? { key: productKey, orders: {} };
             product.orders[orderUrl] = {
                 status,
                 user,
@@ -471,39 +494,21 @@
         }
     }
 
-    async function getOrCreateProduct(storeName, productName) {
-        const db = await getDb();
-        const productKey = productName.toLowerCase();
-        const product = await db.get(storeName, productKey);
-
-        if (product) {
-            return { ...product };
-        }
-
-        const newProduct = {
-            key: productKey,
-            orders: {},
-        }
-        const tx = db.transaction(storeName, 'readwrite');
-        await tx.store.add(newProduct);
-        await tx.done;
-        return newProduct;
-    }
-
     async function findOrdersWithProduct(productName, storeName) {
-        const productKey = productName.toLowerCase();
+        const needle = productName.toLowerCase().trim();
+        if (!needle) {
+            return [];
+        }
         const db = await getDb();
-        const keyRange = IDBKeyRange.bound(productKey, productKey + '\uffff');
 
         const store = db.transaction(storeName, 'readonly').store;
         const matchedOrders = {};
-        for await (const cursor of store.iterate(keyRange)) {
-            if (!cursor.value.orders) {
-                // Likely some meta key, skip
+        for await (const cursor of store.iterate()) {
+            // Skip meta keys (no orders) and products not matching the needle
+            if (!cursor.value.orders || !cursor.key.includes(needle)) {
                 continue;
             }
-            const cursorOrders = structuredClone(cursor.value.orders);
-            for (const [orderUrl, orderData] of Object.entries(cursorOrders)) {
+            for (const [orderUrl, orderData] of Object.entries(cursor.value.orders)) {
                 matchedOrders[orderUrl] = { ...orderData, orderUrl };
             }
         }
