@@ -24,8 +24,9 @@ and at least one wantlist must exist under https://www.cardmarket.com/en/Magic/W
   "More articles from this seller"): click the *Check all wantlists* button
   above the offers table. The matches for every wantlist appear in one
   collapsible panel — per list: hit count plus the matching offer rows in
-  Cardmarket's own row layout. Lists with many hits are capped at 5 result
-  pages, with a link to the full filtered view.
+  Cardmarket's own row layout, with working card-image tooltips and add-to-cart
+  buttons. Lists with many hits are capped at 5 result pages, with a link to
+  the full filtered view.
 * **Product page** (`/en/Magic/Products/Singles/...`): click the small `♡?`
   button next to a seller's name to get that seller's wantlist hits as
   `total (a+b+c)` — one number per wantlist, each linking to the filtered view
@@ -50,6 +51,13 @@ counts from English page text.
 * Per-seller hit counts are cached for 6 h, so revisiting the cart or a
   product page doesn't refetch. All requests go through one sequential queue,
   spaced 1.5 s apart, to stay friendly with Cloudflare.
+* Cardmarket binds tooltips and the add-to-cart AJAX handler per element at
+  page load and only re-runs that for rows its own AJAX responses insert, so
+  the panel's cloned rows are re-initialized through Cardmarket's own
+  `Init.init()`. Their element ids are namespaced with a `cmwh-` prefix (ids
+  must stay unique, but the add-to-cart form references the row id), and the
+  row checkbox is dropped because it belongs to the page's bulk "put checked
+  in cart" form outside the panel.
 * Cardmarket's localStorage is sometimes completely full (an analytics blob
   can take the whole quota); the script then falls back to sessionStorage —
   caching still works, but only per tab.
@@ -59,3 +67,7 @@ counts from English page text.
 * A card present in more than one wantlist is counted once per list.
 * Counts are a snapshot; a seller can sell through between the cached count
   and your visit.
+* Adding a panel row to the cart works, but the panel row itself is not
+  refreshed afterwards (Cardmarket updates the row by id, and panel ids are
+  namespaced): the remaining quantity shown there can be stale until you
+  re-run the check.
