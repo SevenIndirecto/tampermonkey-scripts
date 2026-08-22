@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Cardmarket.com Wantlist Helper
-// @version      0.2.0
+// @version      0.3.0
 // @description  See how many cards from your wantlists a seller offers: combined matches table on seller pages, on-demand counts on product pages, automatic counts in the shopping cart.
 // @author       seven
 // @namespace    https://github.com/SevenIndirecto/tampermonkey-scripts/raw/refs/heads/master/cardmarket.com-wantlist-helper/
@@ -236,6 +236,10 @@
 
     // --- cloning Cardmarket's own offer rows ---
 
+    // AjaxRequest.handleCallback() resolves data-ajax-callback as a dotted path off
+    // window, so our stand-in for Offers.addArticlesCB has to be global.
+    const CART_CALLBACK_NAME = 'cmwhAddArticlesCB';
+
     // Cardmarket binds tooltips and the add-to-cart AJAX submit handler per element
     // when the page loads, and only re-runs that for nodes its own AJAX responses
     // insert (see Init.observeDomChanges). Rows we clone in are inert until we run
@@ -255,31 +259,104 @@
         }
     }
 
-    function importArticleRow(row) {
-        const imported = document.importNode(row, true);
-        // Ids have to stay unique on the page, but dropping them breaks intra-row
-        // references (label/for, the add-to-cart form's loader target), so namespace
-        // them and rewrite the references that point at renamed ids only - things
-        // like data-bs-target="#modal" must keep pointing outside the clone.
+    // Offers.initAmountInputEventListeners() is the one binder Init.init() does not
+    // cover: at page load it walks the whole document and makes each cart button
+    // copy its row's amount <select> into the form's hidden amount[<id>] field on
+    // click (an empty field means one copy). Cloned buttons never got it, so adding
+    // 2 from a panel row added 1. Re-running Cardmarket's version would not help -
+    // it is unscoped and looks the select up by its global id, which our renamed
+    // clones no longer carry - so do the same job scoped to the cloned row.
+    function bindAmountToCartButton(row) {
+        for (const button of row.querySelectorAll('button[data-id-amount]')) {
+            button.addEventListener('click', () => {
+                const id = button.dataset.idAmount;
+                const target = button.closest('form')?.querySelector(`input[name="amount[${id}]"]`);
+                if (!target) { return; }
+                const select = row.querySelector(`select[name="amount[${id}]"]`);
+                target.value = select ? select.value : '1';
+            });
+        }
+    }
+
+    let clonedRowCount = 0;
+
+    function prepareArticleRow(row) {
+        // Ids have to stay unique on the page - the same offer can appear in more
+        // than one wantlist section and again in the table below - but dropping
+        // them breaks intra-row references (label/for, the add-to-cart form's
+        // loader target), so give every clone its own prefix and rewrite the
+        // references pointing at renamed ids only: things like
+        // data-bs-target="#modal" must keep pointing outside the clone.
+        const prefix = `${ID_PREFIX}${++clonedRowCount}-`;
+        const originalId = row.id;
         const renamed = new Set();
-        for (const el of [imported, ...imported.querySelectorAll('[id]')]) {
+        for (const el of [row, ...row.querySelectorAll('[id]')]) {
             if (el.id) {
                 renamed.add(el.id);
-                el.id = ID_PREFIX + el.id;
+                el.id = prefix + el.id;
             }
         }
-        for (const el of [imported, ...imported.querySelectorAll('*')]) {
+        for (const el of [row, ...row.querySelectorAll('*')]) {
             for (const attr of ['for', 'data-ajax-loader', 'aria-labelledby', 'aria-controls', 'aria-describedby']) {
                 const value = el.getAttribute(attr);
-                if (value && renamed.has(value)) { el.setAttribute(attr, ID_PREFIX + value); }
+                if (value && renamed.has(value)) { el.setAttribute(attr, prefix + value); }
             }
         }
-        // The row checkbox belongs to the page's "put checked in cart" form, which
-        // lives outside the panel: leaving it in means "select all offers" silently
-        // submits our cloned rows too. Cart buttons still work per row.
-        imported.querySelectorAll('input[type="checkbox"][form]').forEach(el => el.remove());
-        return imported;
+        // Which offer this clone shows, so the add-to-cart callback can find every
+        // copy of a row without relying on the (now prefixed, possibly repeated) id.
+        if (originalId) { row.dataset.cmwhRowId = originalId; }
+        // The row checkbox and the amount select are form="BuyAllForm" - the page's
+        // "put checked in cart" form, which lives outside the panel: left attached,
+        // "select all offers" silently submits our cloned rows too. The select is
+        // still needed as the per-row amount picker, the checkbox is not.
+        row.querySelectorAll('input[type="checkbox"][form]').forEach(el => el.remove());
+        row.querySelectorAll('[form]').forEach(el => el.removeAttribute('form'));
+        // Cardmarket's callback refreshes rows by their original id (so it never
+        // sees the clones) and appends its pagination follow-up rows into whatever
+        // table the caller sits in (so they would land in our panel). Ours doesn't.
+        row.querySelectorAll('form[data-ajax-callback="Offers.addArticlesCB"]')
+            .forEach(form => { form.dataset.ajaxCallback = CART_CALLBACK_NAME; });
+        bindAmountToCartButton(row);
+        return row;
     }
+
+    function importArticleRow(row) {
+        return prepareArticleRow(document.importNode(row, true));
+    }
+
+    function replaceArticleRow(target, markup) {
+        if (!target) { return; }
+        const isClone = !!target.dataset.cmwhRowId;
+        if (!markup) { target.remove(); return; }
+        const holder = document.createElement('div');
+        holder.innerHTML = markup;
+        const fresh = holder.firstElementChild;
+        if (!fresh) { target.remove(); return; }
+        target.replaceWith(isClone ? prepareArticleRow(fresh) : fresh);
+        if (isClone) { initCardmarketWidgets(fresh); }
+    }
+
+    // Stand-in for Offers.addArticlesCB on panel rows. Cardmarket's version updates
+    // the cart menu, then rewrites/removes rows by id and refills the page from the
+    // cursor; only the first two make sense for a clone, and its row lookup misses
+    // the panel entirely, which is why panel rows kept showing a stale quantity.
+    window[CART_CALLBACK_NAME] = function (response, caller) {
+        let updatedRows = null;
+        try {
+            window.AJAXResponse?.updateShoppingCartCB?.(response);
+            updatedRows = response.getJSON('updatedRows');
+        } catch (err) {
+            console.warn('[CM Wantlist Helper] Add to cart callback failed:', err);
+        }
+        for (const [id, html] of Object.entries(updatedRows || {})) {
+            const markup = String(html).trim();
+            replaceArticleRow(document.getElementById(id), markup);
+            for (const clone of document.querySelectorAll(`[data-cmwh-row-id="${id}"]`)) {
+                replaceArticleRow(clone, markup);
+            }
+        }
+        try { window.Offers?.enableDisablePutCheckedInCart?.(); } catch (err) { /* page-table only */ }
+    };
 
     // --- seller offers page: combined matches panel ---
 
