@@ -63,7 +63,7 @@ also removes localStorage `_cm-helper-synced-orders` (try/catch; no more localSt
 
 - `orders`, key `id`: `{ id, direction: 'buy'|'sell', status, date, user }`.
   Status and date live only here because they change.
-- `items`, key `"<orderId>:<articleId>"`, indexes `productId`, `orderId`:
+- `items`, key `"<orderId>:<articleId>"`, indexes `productId`, `productPath`:
   `{ key, orderId, direction, productId, game, productPath, name, expansionName,
   number, condition, language, price, amount, extras, data }`. `productPath` is the
   product link without `/<lang>/`. `data` holds the row's raw `data-*` attributes, so a
@@ -183,25 +183,30 @@ Same container as today, rebuilt:
 - **IndexedDB unavailable:** inject nothing on product pages; show the error on the
   Orders page.
 
-## To verify during implementation
+## Verified during implementation
 
-- **Price:** whether `data-price` is per copy or per line. A Weiss row had amount 4,
-  price 0.5.
-- **Extras:** foil, signed, reverse holo etc. in the `.extras` icons, and their tooltips.
-- **Condition and language labels:** condition 2 = NM matches the row text; language 7
-  = Japanese is inferred.
-- **Row date:** whether the search row date is the order date or the last status
-  change. If it's the latter, take the purchase date from the order page.
-- **Search behavior:** whether an empty window still returns `#StatusTable`, and the
-  results page size. Also whether omitting `shipmentStatus` returns all statuses, which
-  would halve the search requests.
-- **Versions page extraction:** per-card product id extraction on the Versions page.
-  A 5–7 digit scan found 63 distinct numbers for 68 versions, probably because old
-  products have shorter ids. Also check pagination on cards with hundreds of versions
-  (basic lands).
-- **Tab activation:** that Bootstrap activates the injected tab, given Cardmarket's
-  `d-none`/`active` pane CSS.
-- **Username:** parsing it out of the `#account-dropdown` text.
+- **Price:** `data-price` is per copy. Σ amount × price matched the order's "Article
+  Value" (21,28 €).
+- **Extras:** `.extras [title]` icons, e.g. `title="Foil"`.
+- **Condition and language:** condition from `.article-condition .badge` ("NM");
+  language from the `.col-icon [title]` icon ("English"). The labels are stored instead
+  of the ids.
+- **Row date:** the search row date is the *latest status* date (Arrived), not the
+  purchase date. The order date comes from the first `#Timeline .timeline-box`
+  ("Unpaid: 21.08.2021 01:06"). The row date is kept as `statusDate`.
+- **Search behavior:** an empty date range still returns `#StatusTable` ("0 Shipments").
+  Leaving out `shipmentStatus` returns an error alert, so Past and Open are queried
+  separately.
+- **Versions page:** product ids come from each `a.card`'s lazy image
+  (`data-echo=".../<id>/<id>.jpg"`). This worked for all 68 Bolts; the 5 misses from
+  the earlier scan were 4-digit ids. Island (823 versions) is one page (~1 MB) with no
+  pagination. Cards without an image id fall back to matching `productPath`, hence that
+  index instead of `orderId`.
+- **Tab activation:** Bootstrap's delegated handler activates the injected tab and pane.
+- **Username:** `#account-dropdown .line-height115 span`. Fetched pages carry the same
+  header, so its absence means the session is logged out.
+- **Registration date:** found by the "Registration Date" `.dt` label on
+  `/en/Magic/Account` rather than a row position.
 
 ## Out of scope (possible follow-ups)
 
