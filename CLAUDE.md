@@ -1,7 +1,8 @@
 # Tampermonkey scripts repo
 
-Each script lives in its own folder: `<site>-<purpose>/name.user.js` + `README.md`
-(+ optional helper scripts). Plain JS, no build step, prefer `@grant none`.
+Each top-level folder except `docs/` is a standalone script:
+`<site>-<purpose>/name.user.js` + `README.md` (+ optional helper scripts). Plain JS,
+no build step, prefer `@grant none`. Design specs live in `docs/superpowers/specs/`.
 
 ## Userscript conventions
 
@@ -15,6 +16,9 @@ Each script lives in its own folder: `<site>-<purpose>/name.user.js` + `README.m
   `// BEGIN GENERATED ...` / `// END GENERATED ...` markers; regenerate, don't hand-edit.
 
 ## Cardmarket specifics
+
+Site facts below were last verified 2026-07-19; if a selector or URL misbehaves,
+re-check it against the live page before assuming the script is wrong.
 
 - Cloudflare fronts both `www.cardmarket.com` and `help.cardmarket.com`: curl/Node get a
   403 challenge. Any scraping or API calls must run inside a real browser session
